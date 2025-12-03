@@ -1,0 +1,5 @@
+seed: 42
+device: "cpu"
+output_dir: "data/results"
+log_dir: "data/logs"
+

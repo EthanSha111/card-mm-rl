@@ -1,0 +1,10 @@
+n_episodes: 100
+metrics:
+  - return_mean
+  - sharpe
+  - valid_rate
+ood:
+  variations:
+    alpha: [0.0, 0.5, 1.0]
+    spread.beta: [0.1, 0.5, 1.0]
+

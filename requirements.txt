@@ -1,0 +1,12 @@
+gymnasium
+numpy
+scipy
+torch
+tensorboard
+pyyaml
+pandas
+pytest
+matplotlib
+ruff
+black
+pre-commit

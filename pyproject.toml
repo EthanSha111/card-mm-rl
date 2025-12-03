@@ -1,0 +1,12 @@
+[tool.ruff]
+line-length = 88
+target-version = "py310"
+select = ["E", "F", "I"] # Pyflakes, pycodestyle, isort
+ignore = ["E501"] # Ignore line length (let black handle it mostly, or lenient)
+
+[tool.ruff.isort]
+known-first-party = ["mmrl"]
+
+[tool.black]
+line-length = 88
+target-version = ['py310']
