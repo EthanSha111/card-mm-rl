@@ -1,9 +1,9 @@
-# Card-Sum Market Taking RL
+# Card-Sum Market Making RL
 
 A reproducible research codebase for studying market-taking strategies in a stylized card-sum market with realistic microstructure (Tier-2 liquidity, impact, events).
 
 ## Overview
-The goal is to trade (long/short) on the sum of 3 hidden cards (2-10, J = 11, Q = 12, K = 13, A = 14).
+The goal is to trade (long/short) on the sum of 3 hidden cards (2-10, J, Q, K, A).
 - **Information**: Hints (revealed cards), Market Quotes (Mid/Spread), Displayed Depth.
 - **Dynamics**: Tier-2 liquidity (hidden vs displayed), market impact, slippage.
 - **Events**: Probabilistic constraints (e.g., "Even cards only", "Sum >= 10").
@@ -16,11 +16,71 @@ See [docs/architecture.md](docs/architecture.md) for detailed system design.
 pip install -e .
 ```
 
-Requirements: Python 3.10+, `torch`, `gymnasium`, `numpy`, `pandas`, `pyyaml`.
+Requirements: Python 3.10+, `torch`, `gymnasium`, `numpy`, `pandas`, `pyyaml`, `tensorboard`.
 
-## Quickstart
+---
 
-### 1. Human Play (CLI)
+## Complete Training & Evaluation Workflow
+
+### 1. Train All RL Agents
+
+```bash
+# Train DQN (Single Player) - 1000 episodes
+python -m mmrl.agents.dqn.train_dqn --episodes 1000 --seed 42
+
+# Train IPPO (Two Player) - 50K steps
+python -m mmrl.agents.ippo.train_ippo --steps 50000 --seed 42
+
+# Train MAPPO (Two Player) - 50K steps
+python -m mmrl.agents.mappo.train_mappo --steps 50000 --seed 42
+
+# Or train all at once with the bash script:
+bash scripts/train_all.sh
+```
+
+**Outputs:**
+- **Models**: Saved to `data/models/{dqn,ippo,mappo}/`
+- **Logs**: TensorBoard logs in `data/logs/{dqn,ippo,mappo}/`
+
+### 2. View Training Progress
+
+```bash
+tensorboard --logdir data/logs
+```
+Open `http://localhost:6006` to see training curves.
+
+### 3. Evaluate All Agents & Baselines
+
+**Evaluate Baselines** (Random, EV Oracle, Level-1):
+```bash
+python scripts/eval_baselines.py --n-episodes 100
+```
+Results saved to `data/results/baselines.csv`.
+
+**Evaluate Trained RL Agents**:
+```bash
+python scripts/eval_all.py --n-episodes 100 --output data/results/eval_all.csv
+```
+
+This runs 100 test episodes for each agent and saves metrics (Return, Sharpe, etc.) to CSV.
+
+### 4. Compare Results
+
+```bash
+cat data/results/eval_all.csv
+```
+
+Or load in Python/Jupyter for analysis:
+```python
+import pandas as pd
+df = pd.read_csv("data/results/eval_all.csv")
+print(df)
+```
+
+---
+
+## Human Play (CLI)
+
 Play against the market or a random opponent.
 
 ```bash
@@ -31,42 +91,36 @@ python -m mmrl.human.cli_play --mode single --events on --impact on
 python -m mmrl.human.cli_play --mode two --opponent random
 ```
 
-### 2. Run Baselines
-Evaluate the Random-Valid policy.
-
-```bash
-python -m mmrl.eval.evaluate --policy random --episodes 100
-```
-
-### 3. Train Agents
-(Example commands, assuming training scripts are hooked up to Hydra/Config)
-
-```bash
-# Train DQN (Single Player)
-python -m mmrl.agents.dqn.train_dqn
-
-# Train IPPO (Two Player)
-python -m mmrl.agents.ippo.train_ippo
-```
-
-### 4. Evaluation & OOD Tests
-Run out-of-distribution tests on spread/impact shifts.
-
-```bash
-python -m mmrl.eval.ood_tests
-```
-
-## Configuration
-Configs are located in `src/mmrl/config/`.
-- `env.yaml`: Market parameters (sigma, spread, liquidity, events).
-- `dqn.yaml`, `ippo.yaml`: Algorithm hyperparameters.
+---
 
 ## Repository Structure
+
 - `src/mmrl/env`: Gym environments (Single/Two Player) & Core logic (Cards, Quotes, Liquidity).
 - `src/mmrl/agents`: RL implementations (DQN, IPPO, MAPPO).
-- `src/mmrl/baselines`: Simple policies (Random, EV Oracle).
+- `src/mmrl/baselines`: Simple policies (Random, EV Oracle, Level-1).
 - `src/mmrl/human`: CLI game.
 - `src/mmrl/eval`: Metrics and plotting.
+- `scripts/`: Training and evaluation runners.
+- `data/`: Results, logs, and model checkpoints (auto-created).
+
+---
+
+## Configuration
+
+Configs are located in `src/mmrl/config/`.
+- `env.yaml`: Market parameters (sigma, spread, liquidity, events).
+- `dqn.yaml`, `ippo.yaml`, `mappo.yaml`: Algorithm hyperparameters.
+
+---
+
+## Testing
+
+```bash
+pytest
+```
+
+---
 
 ## License
+
 MIT

@@ -1,17 +1,21 @@
 import argparse
 import numpy as np
 import torch
+import os
+from torch.utils.tensorboard import SummaryWriter
 from mmrl.env.single_env import SingleCardEnv
 from mmrl.agents.dqn.dqn_agent import DQNAgent
 from mmrl.env.spaces import get_obs_shape, ACTION_SPACE_SIZE
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--episodes", type=int, default=100)
+    parser.add_argument("--episodes", type=int, default=1000)
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--log-dir", type=str, default="data/logs/dqn")
+    parser.add_argument("--checkpoint-dir", type=str, default="data/models/dqn")
     args = parser.parse_args()
     
-    # Simple config
+    # Config
     cfg = {
         "episode_length": 10,
         "W0": 500.0,
@@ -27,12 +31,18 @@ def main():
         "lr": 1e-3,
         "epsilon_start": 1.0,
         "epsilon_min": 0.1,
-        "epsilon_decay": 0.99,
-        "buffer_size": 1000,
-        "hidden_dims": [64, 64]
+        "epsilon_decay": 0.995,
+        "buffer_size": 10000,
+        "hidden_dims": [64, 64],
+        "target_update_freq": 100
     }
     
     agent = DQNAgent(get_obs_shape()[0], ACTION_SPACE_SIZE, agent_cfg)
+    
+    # Setup logging
+    os.makedirs(args.log_dir, exist_ok=True)
+    os.makedirs(args.checkpoint_dir, exist_ok=True)
+    writer = SummaryWriter(args.log_dir)
     
     returns = []
     
@@ -40,6 +50,7 @@ def main():
         obs, info = env.reset(seed=args.seed + ep)
         done = False
         ep_ret = 0.0
+        ep_len = 0
         
         while not done:
             mask = info["mask"]
@@ -48,46 +59,43 @@ def main():
             next_obs, reward, terminated, truncated, next_info = env.step(action)
             done = terminated or truncated
             
-            # Store next_mask for replay buffer?
-            # My replay buffer implementation stores `mask` (current).
-            # Update expects `next_masks` for target calc.
-            # So I should store `next_mask` as well?
-            # Currently my `dqn_agent.step` takes `mask` argument.
-            # Is it current mask or next mask?
-            # `agent.act` used current mask.
-            # `agent.step` adds to buffer.
-            # The buffer `add` stores `mask`.
-            # In `update`, `next_masks` are sampled.
-            # Wait, if I store current mask, I only have mask for `obs`.
-            # For `next_obs`, I need mask for `next_obs`.
-            # My buffer `add` takes `mask` (singular).
-            # If I only store current mask, how do I get next_mask?
-            # The buffer usually stores `(s, a, r, s', d)`.
-            # If I need masking for Q(s', a'), I need mask(s').
-            # So I should store `next_mask` in the buffer?
-            # Or just store `mask` and shift it? But `s'` might be terminal.
-            # Let's assume I passed `next_mask` to `agent.step`?
-            # Let's check `dqn_agent.step`.
-            
             next_mask = next_info.get("mask")
             if next_mask is None:
-                # If done, maybe mask is all False or irrelevant
                 next_mask = np.zeros(ACTION_SPACE_SIZE, dtype=bool)
-            
-            # I'll modify agent.step to accept next_mask and store it as mask?
-            # Standard DQN doesn't mask next actions, but here we must.
-            # Let's verify `dqn_agent.py`.
             
             agent.step(obs, action, reward, next_obs, done, next_mask)
             
             obs = next_obs
             info = next_info
             ep_ret += reward
+            ep_len += 1
             
         returns.append(ep_ret)
-        if (ep + 1) % 10 == 0:
-            print(f"Episode {ep+1}/{args.episodes} | Return: {ep_ret:.2f} | Avg10: {np.mean(returns[-10:]):.2f} | Epsilon: {agent.epsilon:.3f}")
+        
+        # Log to TensorBoard
+        writer.add_scalar("train/episode_return", ep_ret, ep)
+        writer.add_scalar("train/episode_length", ep_len, ep)
+        writer.add_scalar("train/epsilon", agent.epsilon, ep)
+        
+        if (ep + 1) % 100 == 0:
+            avg_return = np.mean(returns[-100:])
+            writer.add_scalar("train/avg_return_100", avg_return, ep)
+            print(f"Episode {ep+1}/{args.episodes} | Return: {ep_ret:.2f} | Avg100: {avg_return:.2f} | Epsilon: {agent.epsilon:.3f}")
+            
+        # Save checkpoint
+        if (ep + 1) % 500 == 0 or ep == args.episodes - 1:
+            checkpoint_path = os.path.join(args.checkpoint_dir, f"dqn_ep{ep+1}.pt")
+            torch.save({
+                'q_net': agent.q_net.state_dict(),
+                'target_net': agent.target_net.state_dict(),
+                'optimizer': agent.optimizer.state_dict(),
+                'episode': ep + 1,
+                'epsilon': agent.epsilon
+            }, checkpoint_path)
+            print(f"Saved checkpoint: {checkpoint_path}")
+    
+    writer.close()
+    print(f"DQN Training finished. Logs: {args.log_dir}, Models: {args.checkpoint_dir}")
 
 if __name__ == "__main__":
     main()
-
