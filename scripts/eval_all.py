@@ -115,12 +115,20 @@ def evaluate_two_agent(agent_a, agent_b, agent_name: str, n_episodes: int = 100)
             mask_a = info["mask_a"]
             mask_b = info["mask_b"]
             
+            # Construct joint observation for centralized critic (MAPPO)
+            joint_obs = np.concatenate([obs_a, obs_b])
+            
             # Agent A acts
             if hasattr(agent_a, 'act'):
+                # DQN-style
                 act_a = agent_a.act(obs_a, mask_a, eval_mode=True)
             else:
-                # MAPPO/IPPO might have different signature
-                act_a, _, _ = agent_a.step(obs_a, mask_a) if not hasattr(agent_a, 'ac') else agent_a.ac.act(torch.tensor(obs_a), torch.tensor(mask_a))
+                # IPPO/MAPPO-style: step returns (action, logp, val)
+                # Check if agent needs joint_obs (MAPPO) or just obs (IPPO)
+                try:
+                    act_a, _, _ = agent_a.step(obs_a, joint_obs, mask_a)  # MAPPO
+                except TypeError:
+                    act_a, _, _ = agent_a.step(obs_a, mask_a)  # IPPO
                 
             # Opponent acts
             act_b = opponent.act(obs_b, mask_b, eval_mode=True)

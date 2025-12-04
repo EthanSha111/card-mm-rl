@@ -79,13 +79,17 @@ def main():
             
             # Update
             if agent_a.buffer.ptr >= 64:
-                loss_a = agent_a.update(last_val_a)
-                loss_b = agent_b.update(last_val_b)
+                loss_dict_a = agent_a.update(last_val_a)
+                loss_dict_b = agent_b.update(last_val_b)
                 
-                if loss_a is not None:
-                    writer.add_scalar("train/loss_a", loss_a, episode_count)
-                if loss_b is not None:
-                    writer.add_scalar("train/loss_b", loss_b, episode_count)
+                if loss_dict_a is not None:
+                    writer.add_scalar("train/loss_a", loss_dict_a.get("loss", 0.0), episode_count)
+                    writer.add_scalar("train/kl_a", loss_dict_a.get("kl", 0.0), episode_count)
+                    writer.add_scalar("train/entropy_a", loss_dict_a.get("entropy", 0.0), episode_count)
+                if loss_dict_b is not None:
+                    writer.add_scalar("train/loss_b", loss_dict_b.get("loss", 0.0), episode_count)
+                    writer.add_scalar("train/kl_b", loss_dict_b.get("kl", 0.0), episode_count)
+                    writer.add_scalar("train/entropy_b", loss_dict_b.get("entropy", 0.0), episode_count)
             
             # Log episode
             writer.add_scalar("train/episode_return_a", ep_ret_a, episode_count)
