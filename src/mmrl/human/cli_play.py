@@ -21,7 +21,12 @@ def print_state(info: Dict[str, Any], obs_info: Dict[str, Any], t: int, T: int):
     ev_type = event.get("type", "none")
     print(f"EVENT: {ev_type}")
     if ev_type == "remap_value":
-        print(f"  (Remap {event.get('rank')} -> {event.get('value')})")
+        # event is a dict here: {'type': '...', 'params': {'rank_from': ..., 'value_to': ...}}
+        # OR it might be flattened if to_dict() behaved differently?
+        # Let's check Event.to_dict() in events.py: returns {"type": ..., "params": ...}
+        # So event.get("params", {}) is where the data is.
+        params = event.get("params", {})
+        print(f"  (Remap {params.get('rank_from')} -> {params.get('value_to')})")
     
     # Hints
     hints = obs_info.get("hints", [])
@@ -76,19 +81,30 @@ def run_game(mode: str, events: bool, impact: bool, opponent_type: str = "random
     cfg = {
         "W0": 500.0,
         "episode_length": 10,
-        "event_persist": 0.2,
+        "event_persist": 0.0, # Force 0.0 for debug
         "events": {
-            "none": 0.5,
-            "ge10_only": 0.2,
-            "le7_only": 0.1,
-            "even_only": 0.1,
-            "remap_value": 0.1,
+            "freq": {
+                "none": 0.3,       # Force 0.0
+                "ge10_only": 0.2,
+                "le7_only": 0.2,
+                "even_only": 0.1,
+                "remap_value": 0.2 
+            }
         },
         "flags": {
             "enable_events": events,
-            "enable_impact": impact,
+            "enable_impact": impact
         },
         # "hints": {"count": 2} # Remove to allow random 0..3
+        
+        # Volatile Liquidity Config
+        "liquidity": {
+            "k": 20.0,      # Higher base depth
+            "tau": 1.0,     # High variance (violent swings)
+            "min": 1.0,
+            "max": 50.0,    # Allow deep markets
+            "cap": 10.0     # Display cap (hidden iceberg)
+        }
     }
     
     # Setup Env
@@ -191,6 +207,21 @@ def run_game(mode: str, events: bool, impact: bool, opponent_type: str = "random
             
             print(f"You PnL: {format_money(r_user)} | Opponent PnL: {format_money(r_opp)}")
             print(f"Opponent Action: {action_b}")
+            
+            # Reveal Hidden State
+            print(f"True Sum: {next_info.get('true_sum', '???')}")
+            print(f"True Liquidity (Bid/Ask): {env.true_depths[0]:.1f} / {env.true_depths[1]:.1f}")
+            
+            if next_info.get("exec_price_buy"):
+                p_buy = next_info['exec_price_buy']
+                # Use quote from START of round (display_info), not current env.quote (next round)
+                impact_buy = p_buy - display_info['quote_ask']
+                print(f"Exec Buy Price: {p_buy:.2f} (Impact: {impact_buy:+.2f})")
+                
+            if next_info.get("exec_price_sell"):
+                p_sell = next_info['exec_price_sell']
+                impact_sell = display_info['quote_bid'] - p_sell
+                print(f"Exec Sell Price: {p_sell:.2f} (Impact: {impact_sell:+.2f})")
             
             total_reward += r_user
             info = next_info # Need to ensure this structure works for next loop

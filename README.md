@@ -1,9 +1,9 @@
-# Card-Sum Market Making RL
+# Card-Sum Market Taking RL
 
 A reproducible research codebase for studying market-taking strategies in a stylized card-sum market with realistic microstructure (Tier-2 liquidity, impact, events).
 
 ## Overview
-The goal is to trade (long/short) on the sum of 3 hidden cards (2-10, J, Q, K, A).
+The goal is to trade (long/short) on the sum of 3 hidden cards (2-10, J = 11, Q = 12, K = 13, A = 14).
 - **Information**: Hints (revealed cards), Market Quotes (Mid/Spread), Displayed Depth.
 - **Dynamics**: Tier-2 liquidity (hidden vs displayed), market impact, slippage.
 - **Events**: Probabilistic constraints (e.g., "Even cards only", "Sum >= 10").

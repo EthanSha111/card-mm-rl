@@ -112,12 +112,17 @@ def sample_event(rng: np.random.RandomState, cfg: Any, last_event: Optional[Even
     # Sample new event
     # Frequencies from cfg.events
     # Expected structure: cfg.events = { "none": 0.6, "ge10_only": 0.1, ... }
-    # "remap_value" might be handled specially or have a fixed prob.
-    # The prompt says: "remap_value can be a rare override for example one to two percent."
+    # Or if nested: cfg.events.freq = { ... }
     
-    event_probs = get_cfg("events", {})
+    events_cfg = get_cfg("events", {})
+    if isinstance(events_cfg, dict) and "freq" in events_cfg:
+        event_probs = events_cfg["freq"]
+    else:
+        event_probs = events_cfg
+        
     # If empty, default to none
     if not event_probs:
+        # print("DEBUG: event_probs is empty, defaulting to none")
         return Event(type=EVENT_NONE)
     
     keys = sorted(list(event_probs.keys()))

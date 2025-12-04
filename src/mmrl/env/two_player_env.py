@@ -133,6 +133,7 @@ class TwoPlayerCardEnv(gym.Env):
         info = {
             "mu": self.mu,
             "sigma": self.sigma,
+            "event": self.current_event.to_dict(),
             "true_sum": self.true_sum,
             "mask_a": get_action_mask(self.W_a, self.quote.bid, self.quote.ask, self.current_event),
             "mask_b": get_action_mask(self.W_b, self.quote.bid, self.quote.ask, self.current_event)
@@ -248,7 +249,7 @@ class TwoPlayerCardEnv(gym.Env):
             "q_sell_total": q_sell,
             "true_sum": self.true_sum,
             "mask_a": mask_a,
-            "mask_b": mask_b,
+            "mask_b": mask_b
         }
         
         # Logs
